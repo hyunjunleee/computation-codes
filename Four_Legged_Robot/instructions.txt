@@ -1,0 +1,312 @@
+
+#include <Servo.h>
+/*걍 서보 컨트롤 라이브러리임*/
+#include <math.h>
+
+/*s는 보폭이고 L은 몸통의 세로길이 w는 가로길이 H는 바닥과 몸통의 거리 Lc,Lf,Lt는 각각 어깨, 윗팔, 아랫팔 길이임*/
+#define s 30
+#define L 190.4
+#define W 52.2
+#define H 120
+#define Lc 38.6
+#define Lf 87.7
+#define Lt 82
+/*일단 맨 아래로 스크롤해서 inverse kinematics이라고 주석처리된 actuate 함수부터 살펴보자. 이 칭구는 서보모터의 각도를 나타내는 칭구인데 servo.write(어쩌구저쩌구)가 있을 거야. '어쩌구저쩌구'가 관절의 각도임. 회전방향이랑 초기 각도는 내가 사진으로 첨부했을 거야. 무릎꿇고 있는 사진이 모든 관절의 각도가 0일때의 상태고(실제 각도는 0,90도인데 기준이 되는 상태야) 회전방향도 사진으로 첨부할게. 그럼 네 개의 발이 각각의 어깨에 대해 (x,y,z)이라는 위치에 놓아져야 된다고 하면 actuate(a,x,y,z)이라는 함수를 이용해서 서보의 각도를 구할 수 있지. 이때 a=0,1,2,3은 각각 왼쪽 앞, 오른쪽 앞, 왼쪽 뒤, 오른쪽 뒤를 의미해*/
+Servo servo[4][3];
+/*서보모터 12개를 행렬로 저장함*/
+/*
+void setup() {
+  // put your setup code here, to run once:
+  int pinNum = 2;
+  for (int i = 0; i <= 3; i++)
+  {
+    for (int j = 0; j <= 2; j++)
+    {
+      servo[i][j].attach(pinNum);
+      pinNum++;
+    }
+  }
+
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+
+}
+
+
+/*직진, 제자리에서 돌기, 게걸음, 커브*/
+
+void trot(int steps)
+{
+  int k = (steps - 2) / 2;
+  for (int theta = 60; theta >= 30; theta--)
+  {
+    int t = 60 - theta;
+    actuate(1, s / 2 + s * cos(2 * theta), -H - sqrt(3)*s / 2 + s * sin(2 * theta), 0);
+    actuate(2, s / 2 + s * cos(2 * theta), -H - sqrt(3)*s / 2 + s * sin(2 * theta), 0);
+    actuate(0, -s * t / 30, -H, 0);
+    actuate(3, -s * t / 30, -H, 0);
+    delay(5);
+  }
+  for (int i = 1; i <= k; i++)
+  {
+    for (int theta = 120; theta >= 60; theta--)
+    {
+      int t = 120 - theta;
+      actuate(1, s - s * t / 30, -H, 0);
+      actuate(2, s - s * t / 30, -H, 0);
+      actuate(0, 2 * s * cos(theta), 2 * s * sin(theta) - H - sqrt(3)*s, 0);
+      actuate(3, 2 * s * cos(theta), 2 * s * sin(theta) - H - sqrt(3)*s, 0);
+      delay(5);
+    }
+    for (int theta = 120; theta >= 60; theta--)
+    {
+      int t = 120 - theta;
+      actuate(0, s - s * t / 30, -H, 0);
+      actuate(3, s - s * t / 30, -H, 0);
+      actuate(1, 2 * s * cos(theta), 2 * s * sin(theta) - H - sqrt(3)*s, 0);
+      actuate(2, 2 * s * cos(theta), 2 * s * sin(theta) - H - sqrt(3)*s, 0);
+      delay(5);
+    }
+  }
+  for (int theta = 60; theta >= 30; theta--)
+  {
+    int t = 60 - theta;
+    actuate(1, s - s * t / 30, -H, 0);
+    actuate(2, s - s * t / 30, -H, 0);
+    actuate(0, -s / 2 + s * cos(2 * theta), -H - sqrt(3)*s / 2 + s * sin(2 * theta), 0);
+    actuate(3, -s / 2 + s * cos(2 * theta), -H - sqrt(3)*s / 2 + s * sin(2 * theta), 0);
+    delay(5);
+  }
+}
+
+void spin(float theta)
+{
+  if (theta >= -90 && theta <= 90)
+  {
+    /*code1*/
+    /*step1*/
+    for (int t = 0; t <= 30; t++)
+    {
+      actuate(0, (-L / 2 + L * cos(theta / 2) / 2 - W * sin(theta / 2) / 2) * (t / 60), -H + t / 3, (W / 2 - L * sin(theta / 2) / 2 - W * cos(theta / 2) / 2) * (t / 60));
+      actuate(3, (L / 2 - L * cos(theta / 2) / 2 + W * sin(theta / 2) / 2) * (t / 60), -H + t / 3, (-W / 2 + L * sin(theta / 2) / 2 + W * cos(theta / 2) / 2) * (t / 60));
+      actuate(1, (-L / 2 - L * cos(theta / 2) / 2 + W * sin(theta / 2) / 2) * (t / 60), -H, (-W / 2 + L * sin(theta / 2) / 2 + W * cos(theta / 2) / 2) * (t / 60));
+      actuate(2, (L / 2 - L * cos(theta / 2) / 2 + W * sin(theta / 2) / 2) * (t / 60), -H, (W / 2 - L * sin(theta / 2) / 2 - W * cos(theta / 2) / 2) * (t / 60));
+      delay(5);
+    }
+    for (int t = 31; t <= 60; t++)
+    {
+      actuate(0, (-L / 2 + L * cos(theta / 2) / 2 - W * sin(theta / 2) / 2) * (t / 60), -H - t / 3 + 20, (W / 2 - L * sin(theta / 2) / 2 - W * cos(theta / 2) / 2) * (t / 60));
+      actuate(3, (L / 2 - L * cos(theta / 2) / 2 + W * sin(theta / 2) / 2) * (t / 60), -H - t / 3 + 20, (-W / 2 + L * sin(theta / 2) / 2 + W * cos(theta / 2) / 2) * (t / 60));
+      actuate(1, (-L / 2 - L * cos(theta / 2) / 2 + W * sin(theta / 2) / 2) * (t / 60), -H, (-W / 2 + L * sin(theta / 2) / 2 + W * cos(theta / 2) / 2) * (t / 60));
+      actuate(2, (L / 2 - L * cos(theta / 2) / 2 + W * sin(theta / 2) / 2) * (t / 60), -H, (W / 2 - L * sin(theta / 2) / 2 - W * cos(theta / 2) / 2) * (t / 60));
+      delay(5);
+    }
+    /*step 2*/
+    for (int t = 0; t <= 30; t++)
+    {
+      actuate(0, (-L / 2 + L * cos(theta / 2) / 2 + W * sin(theta / 2) / 2) * (t / 60), -H, (W / 2 + L * sin(theta / 2) / 2 - W * cos(theta / 2) / 2) * (t / 60));
+      actuate(3, (L / 2 - L * cos(theta / 2) / 2 - W * sin(theta / 2) / 2) * (t / 60), -H, (-W / 2 - L * sin(theta / 2) / 2 + W * cos(theta / 2) / 2) * (t / 60));
+      actuate(1, (-L / 2 - L * cos(theta / 2) / 2 - W * sin(theta / 2) / 2) * (t / 60), -H + t / 3, (-W / 2 - L * sin(theta / 2) / 2 + W * cos(theta / 2) / 2) * (t / 60));
+      actuate(2, (L / 2 - L * cos(theta / 2) / 2 - W * sin(theta / 2) / 2) * (t / 60), -H + t / 3, (W / 2 + L * sin(theta / 2) / 2 - W * cos(theta / 2) / 2) * (t / 60));
+      delay(5);
+    }
+    for (int t = 31; t <= 60; t++)
+    {
+      actuate(0, (-L / 2 + L * cos(theta / 2) / 2 + W * sin(theta / 2) / 2) * (t / 60), -H, (W / 2 + L * sin(theta / 2) / 2 - W * cos(theta / 2) / 2) * (t / 60));
+      actuate(3, (L / 2 - L * cos(theta / 2) / 2 - W * sin(theta / 2) / 2) * (t / 60), -H, (-W / 2 - L * sin(theta / 2) / 2 + W * cos(theta / 2) / 2) * (t / 60));
+      actuate(1, (-L / 2 - L * cos(theta / 2) / 2 - W * sin(theta / 2) / 2) * (t / 60), -H - t / 3 + 20, (-W / 2 - L * sin(theta / 2) / 2 + W * cos(theta / 2) / 2) * (t / 60));
+      actuate(2, (L / 2 - L * cos(theta / 2) / 2 - W * sin(theta / 2) / 2) * (t / 60), -H - t / 3 / 20, (W / 2 + L * sin(theta / 2) / 2 - W * cos(theta / 2) / 2) * (t / 60));
+      delay(5);
+    }
+  }
+  if (theta >= 90 || theta <= -90)
+  {
+    theta = theta / 2;
+    for (int i = 1; i <= 2; i++)
+    {
+      /*step1*/
+      for (int t = 0; t <= 30; t++)
+      {
+        actuate(0, (-L / 2 + L * cos(theta / 2) / 2 - W * sin(theta / 2) / 2) * (t / 60), -H + t / 3, (W / 2 - L * sin(theta / 2) / 2 - W * cos(theta / 2) / 2) * (t / 60));
+        actuate(3, (L / 2 - L * cos(theta / 2) / 2 + W * sin(theta / 2) / 2) * (t / 60), -H + t / 3, (-W / 2 + L * sin(theta / 2) / 2 + W * cos(theta / 2) / 2) * (t / 60));
+        actuate(1, (-L / 2 - L * cos(theta / 2) / 2 + W * sin(theta / 2) / 2) * (t / 60), -H, (-W / 2 + L * sin(theta / 2) / 2 + W * cos(theta / 2) / 2) * (t / 60));
+        actuate(2, (L / 2 - L * cos(theta / 2) / 2 + W * sin(theta / 2) / 2) * (t / 60), -H, (W / 2 - L * sin(theta / 2) / 2 - W * cos(theta / 2) / 2) * (t / 60));
+        delay(5);
+      }
+      for (int t = 31; t <= 60; t++)
+      {
+        actuate(0, (-L / 2 + L * cos(theta / 2) / 2 - W * sin(theta / 2) / 2) * (t / 60), -H - t / 3 + 20, (W / 2 - L * sin(theta / 2) / 2 - W * cos(theta / 2) / 2) * (t / 60));
+        actuate(3, (L / 2 - L * cos(theta / 2) / 2 + W * sin(theta / 2) / 2) * (t / 60), -H - t / 3 + 20, (-W / 2 + L * sin(theta / 2) / 2 + W * cos(theta / 2) / 2) * (t / 60));
+        actuate(1, (-L / 2 - L * cos(theta / 2) / 2 + W * sin(theta / 2) / 2) * (t / 60), -H, (-W / 2 + L * sin(theta / 2) / 2 + W * cos(theta / 2) / 2) * (t / 60));
+        actuate(2, (L / 2 - L * cos(theta / 2) / 2 + W * sin(theta / 2) / 2) * (t / 60), -H, (W / 2 - L * sin(theta / 2) / 2 - W * cos(theta / 2) / 2) * (t / 60));
+        delay(5);
+      }
+      /*step 2*/
+      for (int t = 0; t <= 30; t++)
+      {
+        actuate(0, (-L / 2 + L * cos(theta / 2) / 2 + W * sin(theta / 2) / 2) * (t / 60), -H, (W / 2 + L * sin(theta / 2) / 2 - W * cos(theta / 2) / 2) * (t / 60));
+        actuate(3, (L / 2 - L * cos(theta / 2) / 2 - W * sin(theta / 2) / 2) * (t / 60), -H, (-W / 2 - L * sin(theta / 2) / 2 + W * cos(theta / 2) / 2) * (t / 60));
+        actuate(1, (-L / 2 - L * cos(theta / 2) / 2 - W * sin(theta / 2) / 2) * (t / 60), -H + t / 3, (-W / 2 - L * sin(theta / 2) / 2 + W * cos(theta / 2) / 2) * (t / 60));
+        actuate(2, (L / 2 - L * cos(theta / 2) / 2 - W * sin(theta / 2) / 2) * (t / 60), -H + t / 3, (W / 2 + L * sin(theta / 2) / 2 - W * cos(theta / 2) / 2) * (t / 60));
+        delay(5);
+      }
+      for (int t = 31; t <= 60; t++)
+      {
+        actuate(0, (-L / 2 + L * cos(theta / 2) / 2 + W * sin(theta / 2) / 2) * (t / 60), -H, (W / 2 + L * sin(theta / 2) / 2 - W * cos(theta / 2) / 2) * (t / 60));
+        actuate(3, (L / 2 - L * cos(theta / 2) / 2 - W * sin(theta / 2) / 2) * (t / 60), -H, (-W / 2 - L * sin(theta / 2) / 2 + W * cos(theta / 2) / 2) * (t / 60));
+        actuate(1, (-L / 2 - L * cos(theta / 2) / 2 - W * sin(theta / 2) / 2) * (t / 60), -H - t / 3 + 20, (-W / 2 - L * sin(theta / 2) / 2 + W * cos(theta / 2) / 2) * (t / 60));
+        actuate(2, (L / 2 - L * cos(theta / 2) / 2 - W * sin(theta / 2) / 2) * (t / 60), -H - t / 3 / 20, (W / 2 + L * sin(theta / 2) / 2 - W * cos(theta / 2) / 2) * (t / 60));
+        delay(5);
+      }
+    }
+  }
+}
+
+void translate(float steps)
+{
+  /*READ THISreplace z with x in 'trot'*/
+  int k = (steps - 2) / 2;
+  for (int theta = 60; theta >= 30; theta--)
+  {
+    int t = 60 - theta;
+    actuate(1, 0, -H - sqrt(3)*s / 2 + s * sin(2 * theta), s / 2 + s * cos(2 * theta));
+    actuate(2, 0, -H - sqrt(3)*s / 2 + s * sin(2 * theta), s / 2 + s * cos(2 * theta));
+    actuate(0, 0, -H, -s * t / 30);
+    actuate(3, 0, -H, -s * t / 30);
+    delay(5);
+  }
+  for (int i = 1; i <= k; i++)
+  {
+    for (int theta = 120; theta >= 60; theta--)
+    {
+      int t = 120 - theta;
+      actuate(1, 0, -H, s - s * t / 30);
+      actuate(2, 0, -H, s - s * t / 30);
+      actuate(0, 0, 2 * s * sin(theta) - H - sqrt(3)*s, 2 * s * cos(theta));
+      actuate(3, 0, 2 * s * sin(theta) - H - sqrt(3)*s, 2 * s * cos(theta));
+      delay(5);
+    }
+    for (int theta = 120; theta >= 60; theta--)
+    {
+      int t = 120 - theta;
+      actuate(0, 0 , -H, s - s * t / 30);
+      actuate(3, 0, -H, s - s * t / 30);
+      actuate(1, 0, 2 * s * sin(theta) - H - sqrt(3)*s, 2 * s * cos(theta));
+      actuate(2, 0, 2 * s * sin(theta) - H - sqrt(3)*s, 2 * s * cos(theta));
+      delay(5);
+    }
+  }
+  for (int theta = 60; theta >= 30; theta--)
+  {
+    int t = 60 - theta;
+    actuate(1, 0, -H, s - s * t / 30);
+    actuate(2, 0, -H, s - s * t / 30);
+    actuate(0, 0, -H - sqrt(3)*s / 2 + s * sin(2 * theta), -s / 2 + s * cos(2 * theta));
+    actuate(3, 0, -H - sqrt(3)*s / 2 + s * sin(2 * theta), -s / 2 + s * cos(2 * theta));
+    delay(5);
+  }
+}
+
+/*roll pitch yaw*/
+void roll(float t)
+{
+  if (t > 0)
+  {
+    for (int theta = 0; theta <= t; theta++)
+    {
+      actuate(0, 0, -H * cos(theta) + W * sin(theta) / 2, W / 2 - H * sin(theta) - W * cos(theta) / 2);
+      actuate(2, 0, -H * cos(theta) + W * sin(theta) / 2, W / 2 - H * sin(theta) - W * cos(theta) / 2);
+      actuate(1, 0, -H * cos(theta) - W * sin(theta) / 2, -W / 2 - H * sin(theta) + W * cos(theta) / 2);
+      actuate(3, 0, -H * cos(theta) - W * sin(theta) / 2, -W / 2 - H * sin(theta) + W * cos(theta) / 2);
+      delay(15);
+    }
+  }
+  if (t < 0)
+  {
+    for (int theta = 0; theta >= t; theta--)
+    {
+      actuate(0, 0, -H * cos(theta) + W * sin(theta) / 2, W / 2 - H * sin(theta) - W * cos(theta) / 2);
+      actuate(2, 0, -H * cos(theta) + W * sin(theta) / 2, W / 2 - H * sin(theta) - W * cos(theta) / 2);
+      actuate(1, 0, -H * cos(theta) - W * sin(theta) / 2, -W / 2 - H * sin(theta) + W * cos(theta) / 2);
+      actuate(3, 0, -H * cos(theta) - W * sin(theta) / 2, -W / 2 - H * sin(theta) + W * cos(theta) / 2);
+      delay(15);
+    }
+  }
+}
+
+
+void pitch(float t)
+{
+  if (t > 0)
+  {
+    for (int theta = 0; theta <= t; theta++)
+    {
+      actuate(0, -L / 2 + L * cos(theta) / 2 - H * sin(theta), -L * sin(theta) / 2 - H * cos(theta), 0);
+      actuate(1, -L / 2 + L * cos(theta) / 2 - H * sin(theta), -L * sin(theta) / 2 - H * cos(theta), 0);
+      actuate(2, L / 2 - L * cos(theta) / 2 - H * sin(theta), L * sin(theta) / 2 - H * cos(theta), 0);
+      actuate(3, L / 2 - L * cos(theta) / 2 - H * sin(theta), L * sin(theta) / 2 - H * cos(theta), 0);
+      delay(15);
+    }
+  }
+  if (t < 0)
+  {
+    for (int theta = 0; theta >= t; theta--)
+    {
+      actuate(0, -L / 2 + L * cos(theta) / 2 - H * sin(theta), -L * sin(theta) / 2 - H * cos(theta), 0);
+      actuate(1, -L / 2 + L * cos(theta) / 2 - H * sin(theta), -L * sin(theta) / 2 - H * cos(theta), 0);
+      actuate(2, L / 2 - L * cos(theta) / 2 - H * sin(theta), L * sin(theta) / 2 - H * cos(theta), 0);
+      actuate(3, L / 2 - L * cos(theta) / 2 - H * sin(theta), L * sin(theta) / 2 - H * cos(theta), 0);
+      delay(15);
+    }
+  }
+}
+
+
+void yaw(float t)
+{
+  if (t > 0)
+  {
+    for (theta = 0; theta <= t; theta++)
+    {
+      actuate(0, -L / 2 + L * cos(theta) / 2 + W * sin(theta) / 2, -H, W / 2 + L * sin(theta) / 2 - W * cos(theta) / 2);
+      actuate(1, -L / 2 + L * cos(theta) / 2 - W * sin(theta) / 2, -H, -W / 2 + L * sin(theta) / 2 + W * cos(theta) / 2);
+      actuate(2, L / 2 - L * cos(theta) / 2 + W * sin(theta) / 2, -H, W / 2 - L * sin(theta) / 2 - W * cos(theta) / 2);
+      actuate(3, L / 2 - L * cos(theta) / 2 - W * sin(theta) / 2, -H, -W / 2 - L * sin(theta) / 2 + W * cos(theta) / 2);
+      delay(15);
+    }
+  }
+  if (t < 0)
+  {
+    for (theta = 0; theta >= t; theta--)
+    {
+      actuate(0, -L / 2 + L * cos(theta) / 2 + W * sin(theta) / 2, -H, W / 2 + L * sin(theta) / 2 - W * cos(theta) / 2);
+      actuate(1, -L / 2 + L * cos(theta) / 2 - W * sin(theta) / 2, -H, -W / 2 + L * sin(theta) / 2 + W * cos(theta) / 2);
+      actuate(2, L / 2 - L * cos(theta) / 2 + W * sin(theta) / 2, -H, W / 2 - L * sin(theta) / 2 - W * cos(theta) / 2);
+      actuate(3, L / 2 - L * cos(theta) / 2 - W * sin(theta) / 2, -H, -W / 2 - L * sin(theta) / 2 + W * cos(theta) / 2);
+      delay(15);
+    }
+  }
+}
+
+/*inverse kinematics*/
+void actuate(int a, float x, float y, float z)
+{
+  if (a == 1 || a == 3)
+  {
+    float x1 = x;
+    float y1 = -sqrt(y * y + z * z - Lc * Lc);
+    servo[a][0].write(acos(Lc * y1 * (y / Lc + z / y1) / (y1 * y1 + Lc * Lc)));
+    servo[a][1].write(acos((Lf * Lf + x1 * x1 + y1 * y1 - Lt * Lt) / (2 * Lf * sqrt(x1 * x1 + y1 * y1))) - atan(x1 / y1));
+    servo[a][2].write(asin((x ^ 2 + y ^ 2 + z ^ 2 - Lc ^ 2 - Lt ^ 2 - Lf ^ 2) / (2Lf * Lt)));
+  }
+  if (a == 2 || a == 4)
+  {
+    float x1 = x;
+    float y1 = -sqrt(y * y + z * z - Lc * Lc);
+    servo[a][0].write(acos(Lc * y1 * (y / Lc - z / y1) / (y1 * y1 + Lc * Lc)));
+    servo[a][1].write(acos((Lf * Lf + x1 * x1 + y1 * y1 - Lt * Lt) / (2 * Lf * sqrt(x1 * x1 + y1 * y1))) - atan(x1 / y1));
+    servo[a][2].write(asin((x ^ 2 + y ^ 2 + z ^ 2 - Lc ^ 2 - Lt ^ 2 - Lf ^ 2) / (2Lf * Lt)));
+  }
+}
